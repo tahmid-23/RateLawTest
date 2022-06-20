@@ -12,29 +12,35 @@ import javax.swing.SwingUtilities
 import kotlin.random.Random
 
 const val EPOCHS = 1000
-const val MAX_X = 1000
-const val MAX_Y = 1000
-const val MAX_VELOCITY = 3
+const val MAX_X = 100
+const val MAX_Y = 100
+const val MAX_Z = 100
+const val MAX_VELOCITY = 10
 const val MOLECULES = 50_000
-const val REQUIRED_COLLISIONS = 4
+const val REQUIRED_COLLISIONS = 3
 
-data class Vec2(val x: Int, val y: Int)
+data class Vec3(val x: Int, val y: Int, val z: Int)
 
-data class Molecule(val position: Vec2, val velocity: Vec2)
+data class Molecule(val position: Vec3, val velocity: Vec3)
 
 fun main() {
     val random = Random.Default
+    val exponent = REQUIRED_COLLISIONS - 1
 
-    val rates = mutableListOf<Double>()
+    val concentrations = mutableListOf<Double>()
     var molecules = buildList {
         repeat(MOLECULES) {
-            val position = Vec2(random.nextInt(MAX_X), random.nextInt(MAX_Y))
-            val velocity = Vec2(random.nextInt(-MAX_VELOCITY, MAX_VELOCITY + 1), random.nextInt(-MAX_VELOCITY, MAX_VELOCITY + 1))
+            val position = Vec3(random.nextInt(MAX_X), random.nextInt(MAX_Y), random.nextInt(MAX_Z))
+            val velocity = Vec3(
+                random.nextInt(-MAX_VELOCITY, MAX_VELOCITY + 1),
+                random.nextInt(-MAX_VELOCITY, MAX_VELOCITY + 1),
+                random.nextInt(-MAX_VELOCITY, MAX_VELOCITY + 1),
+            )
             add(Molecule(position, velocity))
         }
     }
     for (epoch in 0 until EPOCHS) {
-        val spaceMap = mutableMapOf<Vec2, MutableSet<Molecule>>()
+        val spaceMap = mutableMapOf<Vec3, MutableSet<Molecule>>()
         val removals = buildList {
             for (molecule in molecules) {
                 val otherMolecules = spaceMap.getOrPut(molecule.position, ::mutableSetOf)
@@ -54,18 +60,18 @@ fun main() {
 
         newMolecules.replaceAll(::moveMolecule)
 
-        rates.add(molecules.size.ipow(-REQUIRED_COLLISIONS + 1))
+        concentrations.add(molecules.size.ipow(-exponent))
         println("Epoch $epoch")
     }
 
     val window = JFrame("Rate Law Graph")
     window.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
 
-
+    val concentrationLabel = "Concentration (1/M^$exponent)"
     val plot = letsPlot(mapOf(
         "Epoch" to List(EPOCHS) { it },
-        "Rate" to rates
-    )) { x = "Epoch"; y = "Rate"; } + geomPoint(shape = 1)
+        concentrationLabel to concentrations
+    )) { x = "Epoch"; y = concentrationLabel; } + geomPoint(shape = 1)
     val plotPanel = DefaultPlotPanelJfx(
         MonolithicCommon.processRawSpecs(plot.toSpec(),false),
         preserveAspectRatio = true,
@@ -88,8 +94,10 @@ fun main() {
 private fun moveMolecule(molecule: Molecule): Molecule {
     var newPositionX = molecule.position.x + molecule.velocity.x
     var newPositionY = molecule.position.y + molecule.velocity.y
+    var newPositionZ = molecule.position.z + molecule.velocity.z
     var newVelocityX = molecule.velocity.x
     var newVelocityY = molecule.velocity.y
+    var newVelocityZ = molecule.velocity.z
 
     if (newPositionX < 0 || MAX_X <= newPositionX) {
         newPositionX = molecule.position.x
@@ -99,6 +107,10 @@ private fun moveMolecule(molecule: Molecule): Molecule {
         newPositionY = molecule.position.y
         newVelocityY *= -1
     }
+    if (newPositionZ < 0 || MAX_Z <= newPositionZ) {
+        newPositionZ = molecule.position.z
+        newVelocityZ *= -1
+    }
 
-    return Molecule(Vec2(newPositionX, newPositionY), Vec2(newVelocityX, newVelocityY))
+    return Molecule(Vec3(newPositionX, newPositionY, newPositionZ), Vec3(newVelocityX, newVelocityY, newVelocityZ))
 }
